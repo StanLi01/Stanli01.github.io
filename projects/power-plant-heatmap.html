@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport"
+        content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Global Power Plant Heatmap | Stanley Osondu</title>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.34/esri/css/main.css" />
+  <script src="https://js.arcgis.com/4.34/"></script>
+
+  <style>
+    html, body {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    }
+
+    #viewDiv {
+      height: 70%;
+      width: 100%;
+    }
+
+    #backLink {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      background: #fff;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font: 13px Arial, sans-serif;
+      color: #1f3b57;
+      text-decoration: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,.3);
+    }
+
+    #tableDiv {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 30%;
+      background: white;
+      overflow: auto;
+    }
+
+    #filterContent {
+      padding: 8px;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+    }
+
+    #filterContent input {
+      width: 170px;
+      margin-top: 4px;
+    }
+
+    #filterContent button {
+      margin-top: 4px;
+      width: 80px;
+    }
+  </style>
+</head>
+
+<body>
+  <a id="backLink" href="../index.html#projects">&larr; Back to portfolio</a>
+  <div id="viewDiv"></div>
+  <div id="tableDiv"></div>
+
+  <script>
+    require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/layers/FeatureLayer",
+      "esri/renderers/HeatmapRenderer",
+      "esri/widgets/Measurement",
+      "esri/widgets/Editor",
+      "esri/widgets/FeatureTable",
+      "esri/widgets/TableList",
+      "esri/widgets/LayerList",
+      "esri/widgets/Legend",
+      "esri/widgets/Expand"
+    ], function (
+      Map,
+      MapView,
+      FeatureLayer,
+      HeatmapRenderer,
+      Measurement,
+      Editor,
+      FeatureTable,
+      TableList,
+      LayerList,
+      Legend,
+      Expand
+    ) {
+
+      // 1. Map
+      var map = new Map({
+        basemap: "streets"
+      });
+
+      // 2. Feature layer with HEATMAP renderer
+      var stationsLayer = new FeatureLayer({
+        url: "https://services2.arcgis.com/VNo0ht0YPXJoI4oE/arcgis/rest/services/power_plant_database_global/FeatureServer/0",
+        renderer: new HeatmapRenderer({
+          radius: 20
+        })
+      });
+      map.add(stationsLayer);
+
+      // 3. View
+      var view = new MapView({
+        container: "viewDiv",
+        map: map,
+        center: [-111.8910, 40.7608],
+        scale: 10000000
+      });
+
+      // 4. Widgets after view is ready
+      view.when(function () {
+        var measurement = new Measurement({
+          view: view,
+          activeTool: "distance"
+        });
+
+        var tableList = new TableList({
+          map: map
+        });
+
+        var layerList = new LayerList({
+          view: view
+        });
+
+        var featureTable = new FeatureTable({
+          view: view,
+          layer: stationsLayer,
+          container: "tableDiv"
+        });
+
+        // --- Editor widget in a button (Expand) ---
+        var editor = new Editor({
+          view: view
+        });
+
+        var editorExpand = new Expand({
+          view: view,
+          content: editor,
+          expandIcon: "edit",
+          expandTooltip: "Editor"
+        });
+
+        // --- Legend widget in a button (Expand) ---
+        var legend = new Legend({
+          view: view
+        });
+
+        var legendExpand = new Expand({
+          view: view,
+          content: legend,
+          expandIcon: "legend",
+          expandTooltip: "Legend"
+        });
+
+        // --- Filter (primary_fuel) as a button (Expand) ---
+        var filterDiv = document.createElement("div");
+        filterDiv.id = "filterContent";
+        filterDiv.innerHTML = `
+          <div><strong>Filter by primary fuel</strong></div>
+          <input id="fuelInput" type="text" placeholder="e.g. Coal, Gas, Wind" />
+          <br/>
+          <button id="applyFilterBtn">Apply</button>
+          <button id="clearFilterBtn">Clear</button>
+        `;
+
+        var filterExpand = new Expand({
+          view: view,
+          content: filterDiv,
+          expandIcon: "filter",
+          expandTooltip: "Filter by primary fuel"
+        });
+
+        function wireFilter() {
+          var input = filterDiv.querySelector("#fuelInput");
+          var applyBtn = filterDiv.querySelector("#applyFilterBtn");
+          var clearBtn = filterDiv.querySelector("#clearFilterBtn");
+
+          function applyFilter() {
+            var value = input.value.trim();
+            if (!value) {
+              stationsLayer.definitionExpression = null;
+            } else {
+             
+              stationsLayer.definitionExpression =
+                "primary_fuel LIKE '%" + value.replace(/'/g, "''") + "%'";
+            }
+           
+          }
+
+          applyBtn.addEventListener("click", applyFilter);
+
+          clearBtn.addEventListener("click", function () {
+            input.value = "";
+            stationsLayer.definitionExpression = null;
+          });
+
+          input.addEventListener("keyup", function (e) {
+            if (e.key === "Enter") {
+              applyFilter();
+            }
+          });
+        }
+
+        wireFilter();
+
+        // UI placement
+        view.ui.add(measurement, "top-right");
+        view.ui.add(tableList, "bottom-left");
+        view.ui.add(layerList, "bottom-right");
+        view.ui.add(editorExpand, "top-left");
+        view.ui.add(filterExpand, "top-left");
+        view.ui.add(legendExpand, "top-left");
+      });
+    });
+  </script>
+</body>
+
+</html>
